@@ -10,6 +10,19 @@ app = FastAPI()
 CACHE_DIR = Path("edge").resolve() / "cache"
 ORIGIN = "http://localhost:8000"
 
+
+def fetch_from_origin(cached_file: Path, filename: str):
+    response = httpx.get(f"{ORIGIN}/images/{filename}")
+
+    # To avoid cache from saving corupted files
+    if response.status_code == 200:
+        cached_file.write_bytes(response.content)
+    else:
+        log_error(f"Origin returned: {response.status_code} {response.reason_phrase}")
+
+    return response
+
+
 @app.get("/files/{filename}")
 def show_files(filename : str):
     
@@ -20,12 +33,9 @@ def show_files(filename : str):
             log_info(f"CACHE HIT: {filename}")
 
         else:
-            log_warning(f"The {filename} has expired \nFetching from the origin")
+            log_warning(f"The {filename} has expired. \nFetching from the origin")
             cached_file.unlink(missing_ok = True)
-            response = httpx.get(f"{ORIGIN}/images/{filename}")
-
-            if response.status_code == 200:
-                cached_file.write_bytes(response.content)
+            fetch_from_origin(cached_file, filename)
 
         return Response(
             content = cached_file.read_bytes(),
@@ -34,14 +44,7 @@ def show_files(filename : str):
 
     else:
         log_warning(f"CACHE MISS: {filename}")
-
-        response = httpx.get(f"{ORIGIN}/images/{filename}")
-
-        # Need to protect the cache from storing corrupt files
-        if response.status_code == 200:
-            cached_file.write_bytes(response.content)
-        else:
-            log_error(f"Origin returned {response.status_code}")
+        response = fetch_from_origin(cached_file, filename)
 
         return Response(
             content = response.content,
