@@ -3,14 +3,14 @@ import httpx
 from pathlib import Path
 from shared_utils.color_schema import log_error, log_info, log_warning
 import mimetypes
-from edge.cache_logic import is_cache_valid
+from edge.cache_logic import is_cache_valid, update_last_access, file_eviction
 
 app = FastAPI()
 
 CACHE_DIR = Path("edge").resolve() / "cache"
 ORIGIN = "http://localhost:8000"
 
-
+# Downloading from origin
 def fetch_from_origin(cached_file: Path, filename: str):
     response = httpx.get(f"{ORIGIN}/images/{filename}")
 
@@ -27,8 +27,15 @@ def fetch_from_origin(cached_file: Path, filename: str):
 def show_files(filename : str):
     
     cached_file = CACHE_DIR / filename
+
+    file_eviction(CACHE_DIR, cached_file.stat().st_size)
+    update_last_access(filename)
+    
+# Condition for cache hit
     if cached_file.exists():
         media_type, _ = mimetypes.guess_type(filename)
+
+        # Checking if the cache is sitting for long than expected
         if is_cache_valid(cached_file) == True:
             log_info(f"CACHE HIT: {filename}")
 
@@ -42,6 +49,7 @@ def show_files(filename : str):
             media_type = media_type
         )
 
+# if cache missed
     else:
         log_warning(f"CACHE MISS: {filename}")
         response = fetch_from_origin(cached_file, filename)
