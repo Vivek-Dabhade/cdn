@@ -4,18 +4,18 @@ from pathlib import Path
 from shared_utils.color_schema import log_error, log_info, log_warning
 import mimetypes
 from edge.cache_logic import is_cache_valid, update_last_access, file_eviction
+from edge.config import ORIGIN_URL, CACHE_DIR
 
 app = FastAPI()
 
-CACHE_DIR = Path("edge").resolve() / "cache"
-ORIGIN = "http://localhost:8000"
 
 # Downloading from origin
 def fetch_from_origin(cached_file: Path, filename: str):
-    response = httpx.get(f"{ORIGIN}/images/{filename}")
+    response = httpx.get(f"{ORIGIN_URL}/images/{filename}")
 
     # To avoid cache from saving corupted files
     if response.status_code == 200:
+        file_eviction(CACHE_DIR, len(response.content)) 
         cached_file.write_bytes(response.content)
     else:
         log_error(f"Origin returned: {response.status_code} {response.reason_phrase}")
@@ -28,8 +28,6 @@ def show_files(filename : str):
     
     cached_file = CACHE_DIR / filename
 
-    file_eviction(CACHE_DIR, cached_file.stat().st_size)
-    update_last_access(filename)
     
 # Condition for cache hit
     if cached_file.exists():
@@ -37,6 +35,7 @@ def show_files(filename : str):
 
         # Checking if the cache is sitting for long than expected
         if is_cache_valid(cached_file) == True:
+            update_last_access(filename)
             log_info(f"CACHE HIT: {filename}")
 
         else:
@@ -53,6 +52,7 @@ def show_files(filename : str):
     else:
         log_warning(f"CACHE MISS: {filename}")
         response = fetch_from_origin(cached_file, filename)
+        update_last_access(filename)
 
         return Response(
             content = response.content,

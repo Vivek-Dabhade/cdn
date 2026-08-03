@@ -1,5 +1,5 @@
-My custom ignore list
-edge/cache/
+# My custom ignore list
+cache/
 
 
 # Byte-compiled / optimized / DLL files

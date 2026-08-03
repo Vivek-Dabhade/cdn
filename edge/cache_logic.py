@@ -1,17 +1,15 @@
 import time
 from pathlib import Path
 from shared_utils.color_schema import log_info
+from edge.config import CACHE_TTL, MAX_CACHE_SIZE
 
-
-CACHE_TTL = 70      #TTL - Time To Live
-MAX_CACHE_SIZE = 1000
 last_accessed = {}
 
 # Checking if the file is loger than expected
 def is_cache_valid(cached_file : Path):
     file_age = time.time() - cached_file.stat().st_mtime
 
-    return file_age < CACHE_TTL
+    return file_age < float(CACHE_TTL)
 
 # filling up the last_accessed
 def update_last_access(filename: str):
@@ -28,7 +26,7 @@ def get_cache_size(cache_dir: Path):
 def file_eviction(cache_dir: Path, incoming_file_size: float):
         free_mem = MAX_CACHE_SIZE - get_cache_size(cache_dir)
 
-        while free_mem < incoming_file_size :
+        while float(free_mem) < incoming_file_size :
             if not last_accessed:
                 return False
 
