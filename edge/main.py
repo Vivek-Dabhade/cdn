@@ -5,6 +5,7 @@ from shared_utils.color_schema import log_error, log_info, log_warning
 import mimetypes
 from edge.cache_logic import is_cache_valid, update_last_access, file_eviction
 from edge.config import ORIGIN_URL, CACHE_DIR
+from edge.metrics import increment_origin_fetch, increment_cache_hit, increment_cache_miss, get_metrics, increment_requests
 
 app = FastAPI()
 
@@ -12,6 +13,7 @@ app = FastAPI()
 # Downloading from origin
 def fetch_from_origin(cached_file: Path, filename: str):
     response = httpx.get(f"{ORIGIN_URL}/images/{filename}")
+    increment_origin_fetch()
 
     # To avoid cache from saving corupted files
     if response.status_code == 200:
@@ -25,7 +27,7 @@ def fetch_from_origin(cached_file: Path, filename: str):
 
 @app.get("/files/{filename}")
 def show_files(filename : str):
-    
+    increment_requests()
     cached_file = CACHE_DIR / filename
 
     
@@ -37,11 +39,13 @@ def show_files(filename : str):
         if is_cache_valid(cached_file) == True:
             update_last_access(filename)
             log_info(f"CACHE HIT: {filename}")
+            increment_cache_hit()
 
         else:
             log_warning(f"The {filename} has expired. \nFetching from the origin")
             cached_file.unlink(missing_ok = True)
             fetch_from_origin(cached_file, filename)
+            increment_cache_miss()
 
         return Response(
             content = cached_file.read_bytes(),
@@ -53,9 +57,22 @@ def show_files(filename : str):
         log_warning(f"CACHE MISS: {filename}")
         response = fetch_from_origin(cached_file, filename)
         update_last_access(filename)
+        increment_cache_miss()
 
         return Response(
             content = response.content,
             status_code = response.status_code,
             media_type = response.headers.get("content-type")
         )
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "healthy"
+    }
+
+
+@app.get("/metrics")
+def metrics():
+    return get_metrics()
