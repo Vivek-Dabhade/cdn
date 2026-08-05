@@ -1,0 +1,44 @@
+services:
+  origin:
+    build: .
+    container_name: origin
+    command: uvicorn origin.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+
+  edge1:
+    build: .
+    container_name: edge1
+    command: uvicorn edge.main:app --host 0.0.0.0 --port 8001
+    environment:
+      ENV_FILE: configs/edge2.env
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./edge/cache1:/app/edge/cache1
+    depends_on:
+      - origin
+
+  edge2:
+    build: .
+    container_name: edge2
+    environment:
+      ENV_FILE: configs/edge2.env
+    command: uvicorn edge.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./edge/cache2:/app/edge/cache2
+    depends_on:
+      - origin
+
+  load_balancer:
+    build: .
+    container_name: load_balancer
+    command: uvicorn load_balancer.main:app --host 0.0.0.0 --port 9000
+    ports:
+      - "9000:9000"
+    depends_on:
+      - origin
+      - edge1
+      - edge2

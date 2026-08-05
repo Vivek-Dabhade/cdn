@@ -10,7 +10,7 @@ CACHE_DIR = Path(os.getenv("CACHE_DIR")).resolve()
 PORT = int(os.getenv("PORT", 3000))
 CACHE_TTL = os.getenv("CACHE_TTL", 100) 
 MAX_CACHE_SIZE = int(os.getenv("MAX_CACHE_SIZE", 1024))
-ORIGIN_URL =os.getenv("ORIGIN_URL",'http://localhost:3000')
+ORIGIN_URL =os.getenv("ORIGIN_URL",'http://origin:3000')
 
 # To create dirs autmatically.
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
