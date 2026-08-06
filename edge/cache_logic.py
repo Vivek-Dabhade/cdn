@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 from shared_utils.color_schema import log_info
 from edge.config import CACHE_TTL, MAX_CACHE_SIZE
+from edge.metrics import increment_eviction
 
 last_accessed = {}
 
@@ -36,6 +37,7 @@ def file_eviction(cache_dir: Path, incoming_file_size: float):
             if delete_file.is_file(): 
                 free_mem += delete_file.stat().st_size
                 delete_file.unlink(missing_ok = True)
+                increment_eviction()
                 log_info(f"Cache-maintainance pruning {delete_file}")
 
             last_accessed.pop(oldest_file)

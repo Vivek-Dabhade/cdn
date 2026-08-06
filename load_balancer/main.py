@@ -66,7 +66,7 @@ def get_edge_pool(region):
 
 def is_healthy(edge_url):
     try:
-        response = httpx.get(f"{edge_url}/health")
+        response = httpx.get(f"{edge_url}/health", timeout=5.0)
         return response.status_code == 200
     except httpx.RequestError:
         return False
@@ -98,7 +98,7 @@ def select_edge(region, pool):
 
 def forward_request(edge_url: str, filename: str):
     file_url = f"{edge_url}/files/{filename}"
-    response = httpx.get(file_url)
+    response = httpx.get(file_url, timeout=5.0)
     return response
 
 
@@ -114,31 +114,31 @@ def aggregate_metrics():
     }
     totals["region_requests"] = region_requests.copy()
     totals["failovers"] = failovers
-    
-    for pools in EDGE_POOLS.values():
-        for edge in pools:
 
-            totals["total_edges"] += 1
-            try:
-                response = httpx.get(f"{edge}/metrics")
-                response.raise_for_status()
-    
-            except httpx.RequestError:
-                continue
-    
-            totals["healthy_edges"] += 1
-    
-            # response = httpx.get(f"{edge}/metrics")
-            metrics = response.json()
-    
-            for key in (
-                "requests_total",
-                "cache_hits",
-                "cache_misses",
-                "origin_fetches",
-                "cache_size_mb",
-            ):
-                totals[key] += metrics[key]
+    unique_edges = sorted({edge for pool in EDGE_POOLS.values() for edge in pool})
+
+    for edge in unique_edges:
+
+        totals["total_edges"] += 1
+        try:
+            response = httpx.get(f"{edge}/metrics", timeout=5.0)
+            response.raise_for_status()
+
+        except httpx.RequestError:
+            continue
+
+        totals["healthy_edges"] += 1
+
+        metrics = response.json()
+
+        for key in (
+            "requests_total",
+            "cache_hits",
+            "cache_misses",
+            "origin_fetches",
+            "cache_size_mb",
+        ):
+            totals[key] += metrics[key]
 
     if totals["requests_total"] == 0:
         totals["cache_hit_ratio_percent"] = 0
@@ -149,5 +149,18 @@ def aggregate_metrics():
         )
 
     totals["cache_size_mb"] = round(totals["cache_size_mb"], 2)
-
+    if totals["requests_total"] == 0:
+        totals["origin_offload_percent"] = 0
+    else:
+        totals["origin_offload_percent"] = round(
+            (totals["cache_hits"] / totals["requests_total"]) * 100,
+            2,
+        )
+    if totals["requests_total"] == 0:
+        origin_offload = 0
+    else:
+        origin_offload = round(
+        ((totals["requests_total"] - totals["origin_fetches"])
+            / totals["requests_total"]) * 100,2,)
+    totals["origin_offload_percent"] = origin_offload
     return totals

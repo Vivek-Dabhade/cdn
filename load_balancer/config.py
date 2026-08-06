@@ -1,5 +1,5 @@
 EDGE_POOLS = {
-    "india": ["http://edge1:8001"],
+    "india": ["http://edge1:8001" ],
     "europe": ["http://edge2:8002"],
     "default": ["http://edge1:8001"],
 }

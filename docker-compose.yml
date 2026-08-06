@@ -11,7 +11,7 @@ services:
     container_name: edge1
     command: uvicorn edge.main:app --host 0.0.0.0 --port 8001
     environment:
-      ENV_FILE: configs/edge2.env
+      ENV_FILE: configs/edge1.env
     ports:
       - "8001:8001"
     volumes:
